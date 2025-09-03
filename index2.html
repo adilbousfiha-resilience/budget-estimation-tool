@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RWE Study Budget Estimator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: all 0.3s ease;
+        }
+        .slider-track {
+            background: #e5e7eb;
+        }
+        .slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+            margin-top: -6px; /* Adjust thumb position */
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .checkbox-label:hover {
+            background-color: #f9fafb;
+        }
+        input[type="checkbox"]:checked + .checkbox-label,
+        input[type="radio"]:checked + .checkbox-label {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            color: #2563eb;
+        }
+        input[type="checkbox"], input[type="radio"] {
+            display: none;
+        }
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            max-width: 90%;
+            width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+        /* Loading Spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3b82f6;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Real-World Evidence Study</h1>
+            <h2 class="text-5xl md:text-6xl font-extrabold text-blue-600">Budget Estimator</h2>
+            <p class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">Interactively adjust study parameters to see their impact on the overall budget estimation.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            <!-- Input Controls Column -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- Study Size & Duration Card -->
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-5 border-b pb-3">Study Size & Duration</h3>
+                    <div class="space-y-6">
+                        <!-- Number of Sites -->
+                        <div>
+                            <label for="sites" class="flex justify-between font-medium text-gray-700">
+                                <span>Number of Sites</span>
+                                <span id="sites-value" class="font-bold text-blue-600">50</span>
+                            </label>
+                            <input type="range" id="sites" min="1" max="200" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-track">
+                        </div>
+                        <!-- Number of Patients -->
+                        <div>
+                            <label for="patients" class="flex justify-between font-medium text-gray-700">
+                                <span>Number of Patients</span>
+                                <span id="patients-value" class="font-bold text-blue-600">5,000</span>
+                            </label>
+                            <input type="range" id="patients" min="100" max="50000" value="5000" step="100" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-track">
+                        </div>
+                        <!-- Inclusion Duration -->
+                        <div>
+                            <label for="inclusion" class="flex justify-between font-medium text-gray-700">
+                                <span>Inclusion Duration (Months)</span>
+                                <span id="inclusion-value" class="font-bold text-blue-600">12</span>
+                            </label>
+                            <input type="range" id="inclusion" min="1" max="60" value="12" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-track">
+                        </div>
+                        <!-- Follow-up Duration -->
+                        <div>
+                            <label for="followup" class="flex justify-between font-medium text-gray-700">
+                                <span>Follow-up Duration (Months)</span>
+                                <span id="followup-value" class="font-bold text-blue-600">24</span>
+                            </label>
+                            <input type="range" id="followup" min="0" max="120" value="24" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-track">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Sources & Endpoints Card -->
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-5 border-b pb-3">Data & Complexity</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Data Sources -->
+                        <div>
+                            <label class="font-medium text-gray-700 mb-3 block">Data Sources</label>
+                            <div id="data-sources" class="space-y-3">
+                                <label><input type="checkbox" name="dataSource" value="emr" checked><span class="checkbox-label">EMR / EHR</span></label>
+                                <label><input type="checkbox" name="dataSource" value="claims"><span class="checkbox-label">Claims Data</span></label>
+                                <label><input type="checkbox" name="dataSource" value="registry"><span class="checkbox-label">Patient Registry</span></label>
+                                <label><input type="checkbox" name="dataSource" value="other"><span class="checkbox-label">Other (e.g., PROs)</span></label>
+                            </div>
+                        </div>
+                        <!-- Study Endpoints -->
+                        <div>
+                            <label class="font-medium text-gray-700 mb-3 block">Study Endpoint Complexity</label>
+                            <div id="study-endpoints" class="space-y-3">
+                                <label><input type="radio" name="endpoint" value="simple" checked><span class="checkbox-label">Simple (e.g., incidence)</span></label>
+                                <label><input type="radio" name="endpoint" value="moderate"><span class="checkbox-label">Moderate (e.g., comparative effectiveness)</span></label>
+                                <label><input type="radio" name="endpoint" value="complex"><span class="checkbox-label">Complex (e.g., ML models)</span></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Budget Summary Column -->
+            <div class="lg:col-span-2">
+                <div class="card p-6 sticky top-8">
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">Estimated Budget</h3>
+                    <div class="text-5xl font-extrabold text-blue-600 mb-6" id="total-budget">$0</div>
+                    
+                    <div class="w-full mb-6">
+                        <canvas id="budget-chart"></canvas>
+                    </div>
+
+                    <div id="budget-breakdown">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-3">Cost Breakdown</h4>
+                        <div class="space-y-1 text-sm">
+                            <div class="summary-item">
+                                <span class="text-gray-600">Site Management & Activation</span>
+                                <span id="site-cost" class="font-semibold text-gray-800">$0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="text-gray-600">Data Acquisition & Curation</span>
+                                <span id="data-cost" class="font-semibold text-gray-800">$0</span>
+                            </div>
+                             <div class="summary-item">
+                                <span class="text-gray-600">Project Management</span>
+                                <span id="pm-cost" class="font-semibold text-gray-800">$0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="text-gray-600">Data Analysis & Reporting</span>
+                                <span id="analysis-cost" class="font-semibold text-gray-800">$0</span>
+                            </div>
+                            <div class="summary-item font-medium text-gray-700">
+                                <span>Subtotal</span>
+                                <span id="subtotal" class="font-bold">$0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="text-gray-600">Contingency (15%)</span>
+                                <span id="contingency-cost" class="font-semibold text-gray-800">$0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="generate-report-btn" class="mt-6 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-300 flex items-center justify-center gap-2">
+                        ✨ Generate Report
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Report Generation Modal -->
+    <div id="report-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800">Budget Analysis Report</h3>
+                <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800">&times;</button>
+            </div>
+            <div id="report-output">
+                <!-- Loading state -->
+                <div id="report-loader" class="flex flex-col items-center justify-center py-10">
+                    <div class="loader"></div>
+                    <p class="mt-4 text-gray-600">Generating analysis with Gemini...</p>
+                </div>
+                <!-- Content -->
+                <div id="report-text" class="prose max-w-none text-gray-700 hidden"></div>
+                 <!-- Error state -->
+                <div id="report-error" class="hidden p-4 bg-red-100 text-red-700 rounded-lg">
+                    <p>Sorry, there was an error generating the report. Please try again.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM ELEMENTS ---
+            const sliders = {
+                sites: document.getElementById('sites'),
+                patients: document.getElementById('patients'),
+                inclusion: document.getElementById('inclusion'),
+                followup: document.getElementById('followup'),
+            };
+
+            const values = {
+                sites: document.getElementById('sites-value'),
+                patients: document.getElementById('patients-value'),
+                inclusion: document.getElementById('inclusion-value'),
+                followup: document.getElementById('followup-value'),
+            };
+
+            const dataSourcesCheckboxes = document.querySelectorAll('input[name="dataSource"]');
+            const studyEndpointsRadios = document.querySelectorAll('input[name="endpoint"]');
+
+            const costs = {
+                site: document.getElementById('site-cost'),
+                data: document.getElementById('data-cost'),
+                pm: document.getElementById('pm-cost'),
+                analysis: document.getElementById('analysis-cost'),
+                subtotal: document.getElementById('subtotal'),
+                contingency: document.getElementById('contingency-cost'),
+                total: document.getElementById('total-budget'),
+            };
+
+            // Modal Elements
+            const generateReportBtn = document.getElementById('generate-report-btn');
+            const reportModal = document.getElementById('report-modal');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const reportLoader = document.getElementById('report-loader');
+            const reportText = document.getElementById('report-text');
+            const reportError = document.getElementById('report-error');
+
+            let lastCalculatedBudget = {};
+
+            // --- CHART SETUP ---
+            const ctx = document.getElementById('budget-chart').getContext('2d');
+            let budgetChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [
+                        'Site Management', 
+                        'Data Acquisition', 
+                        'Project Management', 
+                        'Analysis & Reporting'
+                    ],
+                    datasets: [{
+                        label: 'Budget Breakdown',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: [
+                            '#3b82f6', // blue-500
+                            '#2563eb', // blue-600
+                            '#60a5fa', // blue-400
+                            '#93c5fd'  // blue-300
+                        ],
+                        borderColor: '#ffffff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                boxWidth: 12,
+                                font: {
+                                    size: 12,
+                                    family: 'Inter'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(context.parsed);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+
+            // --- COST MODEL PARAMETERS ---
+            const costFactors = {
+                perSite: 7500,
+                perPatientBase: 150,
+                pmPerMonth: 8000,
+                analysisBase: 25000,
+                contingencyRate: 0.15,
+                dataSourceMultipliers: {
+                    emr: 1.2,
+                    claims: 1.0,
+                    registry: 1.8,
+                    other: 1.5,
+                },
+                endpointComplexityMultipliers: {
+                    simple: 1.0,
+                    moderate: 1.7,
+                    complex: 3.0,
+                },
+            };
+
+            // --- CALCULATION LOGIC ---
+            function calculateBudget() {
+                // 1. Get current values from inputs
+                const numSites = parseInt(sliders.sites.value);
+                const numPatients = parseInt(sliders.patients.value);
+                const inclusionDuration = parseInt(sliders.inclusion.value);
+                const followupDuration = parseInt(sliders.followup.value);
+
+                const selectedDataSources = Array.from(dataSourcesCheckboxes)
+                    .filter(cb => cb.checked)
+                    .map(cb => cb.value);
+                
+                const selectedEndpoint = document.querySelector('input[name="endpoint"]:checked').value;
+
+                // 2. Calculate multipliers
+                let dataSourceMultiplier = selectedDataSources.reduce((acc, source) => {
+                    return acc + (costFactors.dataSourceMultipliers[source] || 1.0);
+                }, 0);
+                if (selectedDataSources.length === 0) dataSourceMultiplier = 1; // Default if none selected
+                else if (selectedDataSources.length > 1) dataSourceMultiplier *= 0.8; // Apply a discount for multiple sources
+
+                const endpointMultiplier = costFactors.endpointComplexityMultipliers[selectedEndpoint];
+                const totalDuration = inclusionDuration + followupDuration;
+
+                // 3. Calculate cost components
+                const siteCost = numSites * costFactors.perSite;
+                const dataCost = numPatients * costFactors.perPatientBase * dataSourceMultiplier * (1 + (followupDuration / 24)); // Longer followup increases per-patient cost
+                const pmCost = totalDuration * costFactors.pmPerMonth;
+                const analysisCost = costFactors.analysisBase * endpointMultiplier * Math.log10(numPatients);
+
+                // 4. Calculate totals
+                const subtotal = siteCost + dataCost + pmCost + analysisCost;
+                const contingencyCost = subtotal * costFactors.contingencyRate;
+                const totalBudget = subtotal + contingencyCost;
+                
+                lastCalculatedBudget = { siteCost, dataCost, pmCost, analysisCost, subtotal, contingencyCost, totalBudget };
+
+                // 5. Update UI
+                updateUI(lastCalculatedBudget);
+            }
+
+            // --- UI UPDATE LOGIC ---
+            function formatCurrency(value) {
+                return new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    maximumFractionDigits: 0
+                }).format(value);
+            }
+
+            function updateUI(budget) {
+                costs.site.textContent = formatCurrency(budget.siteCost);
+                costs.data.textContent = formatCurrency(budget.dataCost);
+                costs.pm.textContent = formatCurrency(budget.pmCost);
+                costs.analysis.textContent = formatCurrency(budget.analysisCost);
+                costs.subtotal.textContent = formatCurrency(budget.subtotal);
+                costs.contingency.textContent = formatCurrency(budget.contingencyCost);
+                costs.total.textContent = formatCurrency(budget.totalBudget);
+
+                // Update chart
+                budgetChart.data.datasets[0].data = [
+                    budget.siteCost,
+                    budget.dataCost,
+                    budget.pmCost,
+                    budget.analysisCost
+                ];
+                budgetChart.update();
+            }
+
+            function updateSliderValue(sliderId, value) {
+                 if (sliderId === 'patients') {
+                    values[sliderId].textContent = new Intl.NumberFormat('en-US').format(value);
+                } else {
+                    values[sliderId].textContent = value;
+                }
+            }
+            
+            // --- GEMINI API INTEGRATION ---
+            async function callGeminiApi(prompt) {
+                 const apiKey = "";
+                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const systemPrompt = `You are an expert RWE (Real-World Evidence) study project manager. Your task is to provide a concise, professional summary and justification for a study budget. Analyze the provided study parameters and budget breakdown, and explain the key cost drivers. Use clear headings and bullet points. Do not repeat the raw numbers, but interpret their meaning. The output should be in markdown format.`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    },
+                };
+                
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        return candidate.content.parts[0].text;
+                    } else {
+                        throw new Error("Invalid response structure from API.");
+                    }
+                } catch (error) {
+                    console.error("Gemini API Error:", error);
+                    return null;
+                }
+            }
+
+
+            async function handleGenerateReport() {
+                // Show modal and loader
+                reportModal.classList.add('active');
+                reportLoader.style.display = 'flex';
+                reportText.classList.add('hidden');
+                reportError.classList.add('hidden');
+                
+                // Construct the prompt
+                const inputParams = {
+                    sites: sliders.sites.value,
+                    patients: sliders.patients.value,
+                    inclusionDuration: sliders.inclusion.value,
+                    followupDuration: sliders.followup.value,
+                    dataSources: Array.from(dataSourcesCheckboxes).filter(cb => cb.checked).map(cb => cb.nextElementSibling.textContent).join(', '),
+                    endpointComplexity: document.querySelector('input[name="endpoint"]:checked').nextElementSibling.textContent,
+                };
+
+                const prompt = `
+                    Please generate a budget summary and justification for the following RWE study parameters:
+
+                    **Study Parameters:**
+                    - Number of Sites: ${inputParams.sites}
+                    - Number of Patients: ${inputParams.patients}
+                    - Inclusion Duration: ${inputParams.inclusionDuration} months
+                    - Follow-up Duration: ${inputParams.followupDuration} months
+                    - Data Sources: ${inputParams.dataSources}
+                    - Endpoint Complexity: ${inputParams.endpointComplexity}
+
+                    **Estimated Budget Breakdown:**
+                    - Total Estimated Budget: ${formatCurrency(lastCalculatedBudget.totalBudget)}
+                    - Site Management & Activation: ${formatCurrency(lastCalculatedBudget.siteCost)}
+                    - Data Acquisition & Curation: ${formatCurrency(lastCalculatedBudget.dataCost)}
+                    - Project Management: ${formatCurrency(lastCalculatedBudget.pmCost)}
+                    - Data Analysis & Reporting: ${formatCurrency(lastCalculatedBudget.analysisCost)}
+
+                    Based on this information, provide a qualitative analysis.
+                `;
+
+                const reportContent = await callGeminiApi(prompt);
+                
+                reportLoader.style.display = 'none';
+
+                if (reportContent) {
+                    reportText.innerHTML = reportContent.replace(/\n/g, '<br>'); // Simple markdown conversion
+                    reportText.classList.remove('hidden');
+                } else {
+                    reportError.classList.remove('hidden');
+                }
+            }
+
+            // --- EVENT LISTENERS ---
+            Object.keys(sliders).forEach(key => {
+                sliders[key].addEventListener('input', (e) => {
+                    updateSliderValue(key, e.target.value);
+                    calculateBudget();
+                });
+            });
+
+            dataSourcesCheckboxes.forEach(cb => {
+                cb.addEventListener('change', calculateBudget);
+            });
+
+            studyEndpointsRadios.forEach(radio => {
+                radio.addEventListener('change', calculateBudget);
+            });
+
+            generateReportBtn.addEventListener('click', handleGenerateReport);
+            closeModalBtn.addEventListener('click', () => reportModal.classList.remove('active'));
+            reportModal.addEventListener('click', (e) => {
+                if (e.target === reportModal) {
+                    reportModal.classList.remove('active');
+                }
+            });
+
+            // --- INITIALIZATION ---
+            // Set initial slider text values
+            Object.keys(sliders).forEach(key => {
+                 updateSliderValue(key, sliders[key].value);
+            });
+            // Initial calculation on page load
+            calculateBudget();
+        });
+    </script>
+</body>
+</html>
+
